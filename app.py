@@ -4,7 +4,7 @@ import streamlit as st
 st.set_page_config(page_title="주기율표 퀴즈", page_icon="🔬")
 
 st.title("🔬 주기율표 게임")
-st.write("원자번호를 보고 **원소 기호**를 맞혀보세요! (최대 20문제)")
+st.write("원자번호를 보고 **원소 기호**를 맞혀보세요! (총 20문제)")
 
 # 1~20번 원소 데이터
 ELEMENTS_1_20 = [
@@ -30,54 +30,48 @@ ELEMENTS_1_20 = [
     {"Z": 20, "symbol": "Ca"},
 ]
 
-# 세션 상태 초기화
-if "score" not in st.session_state:
+# 세션 상태 초기화 (한 번만)
+if "initialized" not in st.session_state:
+    st.session_state.initialized = True
+    # 20문제를 랜덤 순서로 뽑기
+    st.session_state.problems = random.sample(ELEMENTS_1_20, k=20)
+    st.session_state.idx = 0
     st.session_state.score = 0
-if "q_num" not in st.session_state:
-    st.session_state.q_num = 0
-if "current_element" not in st.session_state:
-    st.session_state.current_element = None
-if "feedback" not in st.session_state:
     st.session_state.feedback = ""
-if "game_over" not in st.session_state:
     st.session_state.game_over = False
 
-def new_question():
-    st.session_state.current_element = random.choice(ELEMENTS_1_20)
-    st.session_state.feedback = ""
+score = st.session_state.score
+idx = st.session_state.idx
+feedback = st.session_state.feedback
+game_over = st.session_state.game_over
+problems = st.session_state.problems
 
-# 처음 로드시 문제 하나 생성
-if st.session_state.current_element is None and not st.session_state.game_over:
-    new_question()
+st.markdown(f"### 🔢 현재 점수: **{score} / {idx}**")
 
-st.markdown(f"### 🔢 현재 점수: **{st.session_state.score} / {st.session_state.q_num}**")
-
-if st.session_state.game_over:
+# 게임 끝난 경우
+if game_over or idx >= len(problems):
     st.subheader("🎉 게임 종료!")
-    st.write(f"최종 점수: **{st.session_state.score} / 20**")
+    st.write(f"최종 점수: **{score} / {len(problems)}**")
 
     if st.button("🔁 다시 시작하기"):
-        st.session_state.score = 0
-        st.session_state.q_num = 0
-        st.session_state.game_over = False
-        new_question()
+        st.session_state.initialized = False  # 초기화 플래그 리셋
+        st.experimental_rerun()
     st.stop()
 
-# 현재 문제 표시
-elem = st.session_state.current_element
-st.markdown(f"### 문제 {st.session_state.q_num + 1} / 20")
+# 현재 문제
+elem = problems[idx]
+st.markdown(f"### 문제 {idx + 1} / {len(problems)}")
 st.write(f"**원자번호 {elem['Z']}번 원소의 기호는?**")
 
 with st.form("quiz_form"):
-    answer = st.text_input("원소 기호를 입력하세요 (예: H, He, Na 등)", key="answer")
+    answer = st.text_input("원소 기호를 입력하세요 (예: H, He, Na 등)", key="answer_input")
     submitted = st.form_submit_button("제출")
 
 if submitted:
     user = answer.strip()
     correct = elem["symbol"]
 
-    st.session_state.q_num += 1
-
+    # 정답 판정
     if user.lower() == correct.lower():
         st.session_state.score += 1
         st.session_state.feedback = f"✅ 정답! {elem['Z']}번 원소의 기호는 **{correct}** 입니다."
@@ -87,11 +81,14 @@ if submitted:
         else:
             st.session_state.feedback = f"❌ 오답! 입력: `{user}`, 정답: **{correct}**"
 
-    # 20문제 끝났는지 확인
-    if st.session_state.q_num >= 20:
+    # 다음 문제로 이동
+    st.session_state.idx += 1
+
+    # 마지막 문제였으면 게임 종료 플래그
+    if st.session_state.idx >= len(st.session_state.problems):
         st.session_state.game_over = True
-    else:
-        new_question()
+
+    st.experimental_rerun()
 
 # 피드백 출력
 if st.session_state.feedback:
